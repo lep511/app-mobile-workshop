@@ -17,7 +17,7 @@ jobs:
       users: ${{ steps.changes.outputs.users }}
       authorizer: ${{ steps.changes.outputs.authorizer }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
 
