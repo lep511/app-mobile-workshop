@@ -31,12 +31,21 @@ impl AppState {
 pub async fn handle_request(request: Request, state: &AppState) -> Result<Response<Body>, Error> {
     let method = request.method().as_str().to_uppercase();
     let path = request.uri().path().to_string();
+    let request_id = request
+        .lambda_context_ref()
+        .map(|ctx| ctx.request_id.as_str())
+        .unwrap_or("unknown");
     let has_userid = request
         .path_parameters_ref()
         .and_then(|p| p.first("userid"))
         .is_some_and(|v| !v.is_empty());
 
-    tracing::info!(method = %method, path = %path, "Handling request");
+    tracing::info!(
+        request_id = %request_id,
+        method = %method,
+        path = %path,
+        "Handling request"
+    );
 
     let result = match method.as_str() {
         "GET" if has_userid => handlers::get_user(state, &request).await,
@@ -49,12 +58,32 @@ pub async fn handle_request(request: Request, state: &AppState) -> Result<Respon
     };
 
     match result {
-        Ok(response) => Ok(response),
+        Ok(response) => {
+            tracing::info!(
+                request_id = %request_id,
+                status = response.status().as_u16(),
+                "Request completed"
+            );
+            Ok(response)
+        }
         Err(e) => {
+            let status = e.status_code();
             match &e {
-                AppError::NotFound(_) => tracing::warn!(error = %e, "Resource not found"),
-                AppError::ValidationError(_) => tracing::warn!(error = %e, "Validation error"),
-                _ => tracing::error!(error = %e, "Request failed"),
+                AppError::NotFound(_) => tracing::warn!(
+                    request_id = %request_id, status, error = %e, "Resource not found"
+                ),
+                AppError::ValidationError(_) => tracing::warn!(
+                    request_id = %request_id, status, error = %e, "Validation error"
+                ),
+                AppError::Conflict(_) => tracing::warn!(
+                    request_id = %request_id, status, error = %e, "Conflict"
+                ),
+                AppError::MethodNotAllowed => tracing::warn!(
+                    request_id = %request_id, status, method = %method, "Method not allowed"
+                ),
+                AppError::Internal(_) => tracing::error!(
+                    request_id = %request_id, status, error = %e, "Internal error"
+                ),
             }
             Ok(e.into_response())
         }

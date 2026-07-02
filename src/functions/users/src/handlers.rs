@@ -3,7 +3,7 @@ use aws_sdk_dynamodb::operation::put_item::PutItemError;
 use aws_sdk_dynamodb::operation::update_item::UpdateItemError;
 use aws_sdk_dynamodb::types::AttributeValue;
 use lambda_http::{Body, Request, RequestExt, Response};
-use tracing::info;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 use crate::errors::{success_response, AppError};
@@ -20,6 +20,8 @@ pub async fn list_users(state: &AppState, request: &Request) -> Result<Response<
         .and_then(|v| v.parse::<i32>().ok())
         .unwrap_or(DEFAULT_PAGE_SIZE)
         .clamp(1, MAX_PAGE_SIZE);
+
+    debug!(limit, "Listing users");
 
     let mut scan_builder = state
         .dynamo_client
@@ -52,6 +54,8 @@ pub async fn list_users(state: &AppState, request: &Request) -> Result<Response<
             .map(|userid| encode_pagination_token(userid))
     });
 
+    info!(count = users.len(), has_more = next_token.is_some(), "Listed users");
+
     let response_body = ListUsersResponse { users, next_token };
 
     Ok(success_response(200, &response_body))
@@ -59,6 +63,7 @@ pub async fn list_users(state: &AppState, request: &Request) -> Result<Response<
 
 pub async fn get_user(state: &AppState, request: &Request) -> Result<Response<Body>, AppError> {
     let userid = extract_userid(request)?;
+    debug!(userid = %userid, "Getting user");
 
     let result = state
         .dynamo_client

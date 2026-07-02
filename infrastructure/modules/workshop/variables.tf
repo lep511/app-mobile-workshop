@@ -19,3 +19,9 @@ variable "cors_allowed_origins" {
   type        = list(string)
   default     = ["*"]
 }
+
+variable "lambda_log_level" {
+  description = "Log level for Lambda functions (RUST_LOG format, e.g. info, debug, warn)"
+  type        = string
+  default     = "info"
+}

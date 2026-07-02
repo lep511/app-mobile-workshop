@@ -75,7 +75,7 @@ resource "aws_lambda_function" "users" {
   environment {
     variables = {
       USERS_TABLE_NAME = aws_dynamodb_table.users_table.name
-      RUST_LOG         = "info"
+      RUST_LOG         = var.lambda_log_level
     }
   }
 

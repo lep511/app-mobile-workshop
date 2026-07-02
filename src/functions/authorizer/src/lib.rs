@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tracing::{debug, warn};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -93,22 +94,34 @@ pub fn validate_token(
 ) -> AuthorizerResponse {
     let header = match jsonwebtoken::decode_header(token) {
         Ok(h) => h,
-        Err(_) => return denied_response(),
+        Err(e) => {
+            warn!(reason = "invalid_header", error = %e, "Token validation failed");
+            return denied_response();
+        }
     };
 
     let kid = match header.kid {
         Some(k) => k,
-        None => return denied_response(),
+        None => {
+            warn!(reason = "missing_kid", "Token validation failed");
+            return denied_response();
+        }
     };
 
     let jwk = match jwks.keys.iter().find(|k| k.kid == kid) {
         Some(k) => k,
-        None => return denied_response(),
+        None => {
+            warn!(reason = "unknown_kid", kid = %kid, "Token validation failed");
+            return denied_response();
+        }
     };
 
     let decoding_key = match jsonwebtoken::DecodingKey::from_rsa_components(&jwk.n, &jwk.e) {
         Ok(k) => k,
-        Err(_) => return denied_response(),
+        Err(e) => {
+            warn!(reason = "invalid_jwk", error = %e, "Token validation failed");
+            return denied_response();
+        }
     };
 
     let expected_issuer = format!(
@@ -123,21 +136,37 @@ pub fn validate_token(
 
     let token_data = match jsonwebtoken::decode::<TokenClaims>(token, &decoding_key, &validation) {
         Ok(d) => d,
-        Err(_) => return denied_response(),
+        Err(e) => {
+            warn!(reason = "decode_failed", error = %e, "Token validation failed");
+            return denied_response();
+        }
     };
 
     let claims = token_data.claims;
 
     if claims.client_id.as_deref() != Some(client_id) {
+        warn!(
+            reason = "client_id_mismatch",
+            expected = %client_id,
+            actual = claims.client_id.as_deref().unwrap_or("none"),
+            "Token validation failed"
+        );
         return denied_response();
     }
 
     if claims.token_use.as_deref() != Some("access") {
+        warn!(
+            reason = "wrong_token_use",
+            token_use = claims.token_use.as_deref().unwrap_or("none"),
+            "Token validation failed"
+        );
         return denied_response();
     }
 
     let sub = claims.sub.unwrap_or_default();
     let username = claims.username.unwrap_or_default();
+
+    debug!(sub = %sub, username = %username, "Token validated successfully");
 
     AuthorizerResponse {
         is_authorized: true,

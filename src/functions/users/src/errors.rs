@@ -24,6 +24,16 @@ impl fmt::Display for AppError {
 }
 
 impl AppError {
+    pub fn status_code(&self) -> u16 {
+        match self {
+            AppError::NotFound(_) => 404,
+            AppError::ValidationError(_) => 400,
+            AppError::Conflict(_) => 409,
+            AppError::MethodNotAllowed => 405,
+            AppError::Internal(_) => 500,
+        }
+    }
+
     pub fn into_response(self) -> Response<Body> {
         let (status_code, message) = match &self {
             AppError::NotFound(msg) => (404, msg.clone()),
