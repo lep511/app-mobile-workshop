@@ -269,15 +269,41 @@ cd src/functions/authorizer && cargo test
 
 ### Integration Tests
 
-Integration tests invoke the deployed Lambda function directly via the AWS CLI:
+Integration tests run end-to-end against a deployed stack (API Gateway + Cognito + Lambda). They require a `.env` file with connection details.
+
+**Setup:**
 
 ```bash
-# Set the function name and region (defaults: workshop-dev-users, us-west-2)
-export FUNCTION_NAME="workshop-dev-users"
-export AWS_REGION="us-west-2"
+# Copy the example and fill in your values
+cp tests/integration/.env.example tests/integration/.env
+```
 
+Edit `tests/integration/.env`:
+
+```env
+# AWS region for all operations
+AWS_REGION=us-west-2
+
+# API Gateway stage URL (from Terraform output: api_gateway_stage_url)
+API_URL=https://xxxxxxxxxx.execute-api.us-west-2.amazonaws.com/prod
+
+# Cognito User Pool Client ID (from Terraform output: cognito_user_pool_client_id)
+COGNITO_CLIENT_ID=your-cognito-client-id
+
+# A test user registered in Cognito
+TEST_USERNAME=testuser@example.com
+TEST_PASSWORD=YourSecurePassword1!
+```
+
+**Run:**
+
+```bash
 ./tests/integration/test_users_lambda.sh
 ```
+
+The script automatically loads `tests/integration/.env` if present. Alternatively, export the variables directly in your shell.
+
+> **Note:** `.env` files are gitignored and will not be committed. Never commit credentials to the repository.
 
 The integration test suite covers the full CRUD lifecycle:
 1. Create a user
@@ -304,8 +330,8 @@ Triggered on pushes to `main` that modify `src/functions/**`, or via manual `wor
 
 1. **Unit Tests** — runs tests, fmt, and clippy for both Lambda functions in parallel
 2. **Deploy to Dev** — builds and deploys both Lambdas to the dev environment
-3. **Integration Tests** — runs the full CRUD integration test suite against dev
-4. **Deploy to Prod** — promotes to production only after integration tests pass
+3. **Integration Tests** (optional) — runs the full CRUD integration test suite against dev
+4. **Deploy to Prod** — promotes to production (proceeds when integration tests pass or are skipped)
 
 The pipeline uses a reusable workflow (`deploy-lambdas-env.yml`) for per-environment deployments with `cargo lambda build --release --arm64` and `cargo lambda deploy`.
 

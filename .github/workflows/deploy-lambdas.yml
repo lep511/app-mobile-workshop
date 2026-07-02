@@ -17,6 +17,10 @@ on:
         description: "Deploy Authorizer Lambda"
         type: boolean
         default: true
+      run-integration-tests:
+        description: "Run integration tests after dev deploy"
+        type: boolean
+        default: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -67,6 +71,7 @@ jobs:
   integration-tests:
     name: Integration Tests (Dev)
     needs: deploy-dev
+    if: github.event_name != 'workflow_dispatch' || inputs.run-integration-tests
     runs-on: ubuntu-latest
     environment: dev
     steps:
@@ -88,6 +93,7 @@ jobs:
   deploy-prod:
     name: Deploy to Prod
     needs: integration-tests
+    if: always() && !failure() && !cancelled()
     uses: ./.github/workflows/deploy-lambdas-env.yml
     with:
       environment: prod
