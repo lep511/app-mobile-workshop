@@ -68,3 +68,13 @@ output "authorizer_id" {
   value       = aws_apigatewayv2_authorizer.cognito.id
 }
 
+output "cloudwatch_dashboard_name" {
+  description = "Name of the CloudWatch observability dashboard"
+  value       = aws_cloudwatch_dashboard.main.dashboard_name
+}
+
+output "cloudwatch_dashboard_url" {
+  description = "URL to the CloudWatch observability dashboard"
+  value       = "https://${data.aws_region.current.region}.console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.region}#dashboards/dashboard/${aws_cloudwatch_dashboard.main.dashboard_name}"
+}
+

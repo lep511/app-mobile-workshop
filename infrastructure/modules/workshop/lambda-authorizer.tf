@@ -26,6 +26,11 @@ resource "aws_iam_role_policy_attachment" "authorizer_lambda_basic_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+resource "aws_iam_role_policy_attachment" "authorizer_lambda_xray" {
+  role       = aws_iam_role.authorizer_lambda.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+
 resource "aws_iam_role_policy" "authorizer_lambda_cognito" {
   name = "cognito-access"
   role = aws_iam_role.authorizer_lambda.id
@@ -85,7 +90,7 @@ resource "aws_lambda_function" "authorizer" {
 
 resource "aws_cloudwatch_log_group" "authorizer_lambda" {
   name              = "/aws/lambda/${aws_lambda_function.authorizer.function_name}"
-  retention_in_days = 14
+  retention_in_days = var.log_retention_days
 
   tags = {
     Name        = "${var.workshop_stack_base_name}-authorizer-logs"

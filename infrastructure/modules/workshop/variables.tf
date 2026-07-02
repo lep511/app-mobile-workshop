@@ -25,3 +25,9 @@ variable "lambda_log_level" {
   type        = string
   default     = "info"
 }
+
+variable "log_retention_days" {
+  description = "Number of days to retain CloudWatch logs"
+  type        = number
+  default     = 14
+}

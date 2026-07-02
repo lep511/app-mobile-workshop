@@ -10,32 +10,9 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
-  detect-changes:
-    name: Detect Changes
-    runs-on: ubuntu-latest
-    outputs:
-      users: ${{ steps.filter.outputs.users }}
-      authorizer: ${{ steps.filter.outputs.authorizer }}
-      infra: ${{ steps.filter.outputs.infra }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          filters: |
-            users:
-              - 'src/functions/users/**'
-            authorizer:
-              - 'src/functions/authorizer/**'
-            infra:
-              - 'infrastructure/**'
-
   test-users:
     name: Test Users Lambda
     runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.users == 'true'
     defaults:
       run:
         working-directory: src/functions/users
@@ -65,8 +42,6 @@ jobs:
   test-authorizer:
     name: Test Authorizer Lambda
     runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.authorizer == 'true'
     defaults:
       run:
         working-directory: src/functions/authorizer
@@ -96,8 +71,6 @@ jobs:
   validate-infra:
     name: Validate Infrastructure
     runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.infra == 'true'
     defaults:
       run:
         working-directory: infrastructure

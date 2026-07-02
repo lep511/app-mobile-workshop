@@ -28,6 +28,14 @@ jobs:
           terraform_version: "1.15.7"
           cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
 
+      - name: Create placeholder zips for validation
+        working-directory: ${{ env.CONFIG_DIRECTORY }}
+        run: |
+          mkdir -p dist
+          touch /tmp/bootstrap
+          zip dist/users-lambda.zip /tmp/bootstrap
+          zip dist/authorizer-lambda.zip /tmp/bootstrap
+
       - name: Terraform Init
         working-directory: ${{ env.CONFIG_DIRECTORY }}
         run: terraform stacks init

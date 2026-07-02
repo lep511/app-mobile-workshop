@@ -25,14 +25,25 @@ resource "aws_apigatewayv2_stage" "prod" {
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gateway.arn
     format = jsonencode({
-      requestId      = "$context.requestId"
-      ip             = "$context.identity.sourceIp"
-      requestTime    = "$context.requestTime"
-      httpMethod     = "$context.httpMethod"
-      path           = "$context.path"
-      status         = "$context.status"
-      responseLength = "$context.responseLength"
-      errorMessage   = "$context.error.message"
+      requestId               = "$context.requestId"
+      extendedRequestId       = "$context.extendedRequestId"
+      ip                      = "$context.identity.sourceIp"
+      requestTime             = "$context.requestTime"
+      httpMethod              = "$context.httpMethod"
+      path                    = "$context.path"
+      routeKey                = "$context.routeKey"
+      status                  = "$context.status"
+      protocol                = "$context.protocol"
+      responseLength          = "$context.responseLength"
+      responseLatency         = "$context.responseLatency"
+      integrationLatency      = "$context.integrationLatency"
+      integrationStatus       = "$context.integrationStatus"
+      integrationErrorMessage = "$context.integrationErrorMessage"
+      errorMessage            = "$context.error.message"
+      errorResponseType       = "$context.error.responseType"
+      authorizerError         = "$context.authorizer.error"
+      authorizerLatency       = "$context.authorizer.latency"
+      authorizerStatus        = "$context.authorizer.status"
     })
   }
 
@@ -45,7 +56,7 @@ resource "aws_apigatewayv2_stage" "prod" {
 
 resource "aws_cloudwatch_log_group" "api_gateway" {
   name              = "/aws/apigateway/${var.workshop_stack_base_name}-users-api"
-  retention_in_days = 14
+  retention_in_days = var.log_retention_days
 
   tags = {
     Name        = "${var.workshop_stack_base_name}-api-gateway-logs"
