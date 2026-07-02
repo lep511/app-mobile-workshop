@@ -54,7 +54,11 @@ pub async fn list_users(state: &AppState, request: &Request) -> Result<Response<
             .map(|userid| encode_pagination_token(userid))
     });
 
-    info!(count = users.len(), has_more = next_token.is_some(), "Listed users");
+    info!(
+        count = users.len(),
+        has_more = next_token.is_some(),
+        "Listed users"
+    );
 
     let response_body = ListUsersResponse { users, next_token };
 
