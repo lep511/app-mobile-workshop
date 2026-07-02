@@ -4,14 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Serverless Patterns Workshop — an AWS serverless application with Python Lambda functions, Terraform infrastructure, and a REST API backed by DynamoDB with Cognito authentication.
+Serverless Patterns Workshop — an AWS serverless application with Rust Lambda functions (ARM64), Terraform infrastructure, and a REST API backed by DynamoDB with Cognito authentication.
 
 ## Tech Stack
 
-- **Language:** Python 3.x
-- **Infrastructure:** Terraform (>= 1.0.0)
-- **Cloud:** AWS (Lambda, API Gateway, DynamoDB, Cognito, CloudWatch)
-- **Testing:** pytest
+- **Language:** Rust (stable toolchain, targets `aarch64-unknown-linux-gnu`)
+- **Infrastructure:** Terraform (>= 1.0.0), deployed via HCP Terraform Stacks
+- **Cloud:** AWS (Lambda `provided.al2023`, API Gateway HTTP API, DynamoDB, Cognito, CloudWatch, X-Ray)
+- **Build tool:** cargo-lambda
+- **Testing:** `cargo test` (integration tests in `tests/` directory per crate)
 
 ## Commands
 
@@ -22,26 +23,30 @@ terraform plan
 terraform apply
 terraform apply -var="region=us-east-1"
 
-# Tests
-pytest tests/unit/
-pytest tests/integration/
-pytest tests/unit/users/test_app.py  # single test file
+# Build Lambda functions
+./scripts/build-users-lambda.sh
+./scripts/build-authorizer-lambda.sh
 
-# Dependencies
-pip install -r src/users/requirements.txt
-pip install -r src/users/requirements-dev.txt
+# Tests — users lambda
+cd src/functions/users && cargo test
+
+# Tests — authorizer lambda
+cd src/functions/authorizer && cargo test
+
+# Integration tests (requires deployed Lambda)
+./tests/integration/test_users_lambda.sh
 ```
 
 ## Architecture
 
-Two Lambda functions behind API Gateway with a custom authorizer:
+Two Rust Lambda functions behind API Gateway HTTP API with a custom authorizer:
 
-- **Users service** (`src/users/`) — CRUD operations, handler in `lambda_function.py`, backed by DynamoDB
-- **Authorizer** (`src/authorizer/`) — Custom Lambda authorizer (`lambda_authorizer.py`) validating tokens from Cognito
+- **Users service** (`src/functions/users/`) — CRUD operations with lib/bin split: `lib.rs` (public API), `main.rs` (Lambda entry point), `handlers.rs`, `models.rs`, `errors.rs`
+- **Authorizer** (`src/functions/authorizer/`) — Custom Lambda authorizer: `lib.rs` (JWT validation logic), `main.rs` (Lambda entry point)
 
-Infrastructure is split by AWS service (`infrastructure/`): `api-gateway.tf`, `cognito.tf`, `ddb.tf`, `lambda.tf`, `lambda-authorizer.tf`, `monitoring.tf`. Shared config lives in `provider.tf`, `variables.tf`, `versions.tf`.
+Infrastructure is in `infrastructure/modules/workshop/`: `api-gateway.tf`, `cognito.tf`, `ddb.tf`, `lambda-users.tf`, `lambda-authorizer.tf`.
 
-Tests mirror source structure: `tests/unit/users/` for unit tests, `tests/integration/` for integration tests. Fixtures go in `conftest.py`.
+Tests are in the `tests/` directory of each crate (Cargo integration test convention), with shared helpers in `tests/common/mod.rs`.
 
 ## Deployment
 

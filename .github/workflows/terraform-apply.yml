@@ -1,0 +1,50 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/**"
+
+env:
+  TF_CLOUD_ORGANIZATION: "lep511"
+  TF_API_TOKEN: "${{ secrets.TF_API_TOKEN }}"
+  TF_STACK: "stack-mobile-app-v2"
+  TF_PROJECT: "workshop-app-mobile"
+  CONFIG_DIRECTORY: "infrastructure"
+
+jobs:
+  deploy-infra:
+    name: Deploy Infrastructure (Stacks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.7"
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Terraform Format
+        working-directory: ${{ env.CONFIG_DIRECTORY }}
+        run: terraform stacks fmt
+
+      - name: Terraform Validate
+        working-directory: ${{ env.CONFIG_DIRECTORY }}
+        run: terraform stacks validate
+
+      - name: Upload Configuration
+        working-directory: ${{ env.CONFIG_DIRECTORY }}
+        run: |
+          terraform stacks configuration upload \
+            -organization-name "$TF_CLOUD_ORGANIZATION" \
+            -project-name "$TF_PROJECT" \
+            -stack-name "$TF_STACK"
+
+          echo "Configuration uploaded successfully."
+          echo "- dev deployment will auto-approve and apply."
+          echo "- prod deployment requires manual approval in HCP Terraform."
+          echo ""
+          echo "View stack: https://app.terraform.io/app/$TF_CLOUD_ORGANIZATION/projects/prj-Ybw6DA7aRAC8LSAq/stacks/st-kM5CMNrT3yW65Bvi"

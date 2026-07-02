@@ -1,3 +1,6 @@
+use aws_sdk_dynamodb::operation::delete_item::DeleteItemError;
+use aws_sdk_dynamodb::operation::put_item::PutItemError;
+use aws_sdk_dynamodb::operation::update_item::UpdateItemError;
 use aws_sdk_dynamodb::types::AttributeValue;
 use lambda_http::{Body, Request, RequestExt, Response};
 use tracing::info;
@@ -116,13 +119,11 @@ pub async fn create_user(
         .condition_expression("attribute_not_exists(userid)")
         .send()
         .await
-        .map_err(|e| {
-            let err_str = format!("{e}");
-            if err_str.contains("ConditionalCheckFailedException") {
+        .map_err(|e| match e.into_service_error() {
+            PutItemError::ConditionalCheckFailedException(_) => {
                 AppError::Conflict("user already exists".into())
-            } else {
-                AppError::Internal(format!("DynamoDB put failed: {e}"))
             }
+            other => AppError::Internal(format!("DynamoDB put failed: {other}")),
         })?;
 
     info!(userid = %userid, "User created");
@@ -190,13 +191,11 @@ pub async fn update_user(
         update_builder = update_builder.expression_attribute_values(name, value);
     }
 
-    let result = update_builder.send().await.map_err(|e| {
-        let err_str = format!("{e}");
-        if err_str.contains("ConditionalCheckFailedException") {
+    let result = update_builder.send().await.map_err(|e| match e.into_service_error() {
+        UpdateItemError::ConditionalCheckFailedException(_) => {
             AppError::NotFound(format!("User {userid} not found"))
-        } else {
-            AppError::Internal(format!("DynamoDB update failed: {e}"))
         }
+        other => AppError::Internal(format!("DynamoDB update failed: {other}")),
     })?;
 
     let attributes = result
@@ -224,13 +223,11 @@ pub async fn delete_user(
         .condition_expression("attribute_exists(userid)")
         .send()
         .await
-        .map_err(|e| {
-            let err_str = format!("{e}");
-            if err_str.contains("ConditionalCheckFailedException") {
+        .map_err(|e| match e.into_service_error() {
+            DeleteItemError::ConditionalCheckFailedException(_) => {
                 AppError::NotFound(format!("User {userid} not found"))
-            } else {
-                AppError::Internal(format!("DynamoDB delete failed: {e}"))
             }
+            other => AppError::Internal(format!("DynamoDB delete failed: {other}")),
         })?;
 
     info!(userid = %userid, "User deleted");
@@ -253,7 +250,7 @@ pub fn options_response() -> Response<Body> {
         .unwrap()
 }
 
-fn extract_userid(request: &Request) -> Result<String, AppError> {
+pub fn extract_userid(request: &Request) -> Result<String, AppError> {
     request
         .path_parameters_ref()
         .and_then(|p| p.first("userid"))
@@ -262,12 +259,12 @@ fn extract_userid(request: &Request) -> Result<String, AppError> {
         .ok_or_else(|| AppError::ValidationError("userid path parameter is required".into()))
 }
 
-fn encode_pagination_token(userid: &str) -> String {
+pub fn encode_pagination_token(userid: &str) -> String {
     use base64::Engine;
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(userid.as_bytes())
 }
 
-fn decode_pagination_token(token: &str) -> Result<String, AppError> {
+pub fn decode_pagination_token(token: &str) -> Result<String, AppError> {
     use base64::Engine;
     let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .decode(token)

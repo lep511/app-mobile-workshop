@@ -1,0 +1,106 @@
+name: Deploy Lambdas (per environment)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      deploy-users:
+        required: true
+        type: boolean
+      deploy-authorizer:
+        required: true
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deploy-users:
+    name: Users Lambda (${{ inputs.environment }})
+    if: inputs.deploy-users
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: src/functions/users
+    env:
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src/functions/users/target
+          key: ${{ runner.os }}-cargo-users-${{ hashFiles('src/functions/users/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-users-
+
+      - name: Install cargo-lambda
+        run: pip install cargo-lambda
+
+      - name: Run tests
+        run: cargo test --all-features
+
+      - name: Build
+        run: cargo lambda build --release --arm64
+
+      - name: Configure session token
+        if: secrets.AWS_SESSION_TOKEN != ''
+        run: echo "AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}" >> "$GITHUB_ENV"
+
+      - name: Deploy
+        run: cargo lambda deploy ${{ vars.USERS_LAMBDA_FUNCTION_NAME }}
+
+  deploy-authorizer:
+    name: Authorizer Lambda (${{ inputs.environment }})
+    if: inputs.deploy-authorizer
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    defaults:
+      run:
+        working-directory: src/functions/authorizer
+    env:
+      AWS_DEFAULT_REGION: ${{ vars.AWS_DEFAULT_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src/functions/authorizer/target
+          key: ${{ runner.os }}-cargo-authorizer-${{ hashFiles('src/functions/authorizer/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-authorizer-
+
+      - name: Install cargo-lambda
+        run: pip install cargo-lambda
+
+      - name: Run tests
+        run: cargo test --all-features
+
+      - name: Build
+        run: cargo lambda build --release --arm64
+
+      - name: Configure session token
+        if: secrets.AWS_SESSION_TOKEN != ''
+        run: echo "AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}" >> "$GITHUB_ENV"
+
+      - name: Deploy
+        run: cargo lambda deploy ${{ vars.AUTHORIZER_LAMBDA_FUNCTION_NAME }}

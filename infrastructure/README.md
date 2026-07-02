@@ -251,6 +251,157 @@ After deployment, the following outputs are available:
 | `authorizer_lambda_function_arn` | ARN of the authorizer Lambda function |
 | `authorizer_id` | ID of the API Gateway authorizer |
 
+## GitHub Actions CI/CD
+
+### Workflow Overview
+
+```
+.github/workflows/
+├── ci.yml                   # PR + push to main → tests, lint, build, validate infra
+├── terraform-plan.yml       # PR with infrastructure/ changes → plan in HCP Terraform
+├── terraform-apply.yml      # Push to main with infrastructure/ changes → deploy infra
+├── deploy-lambdas.yml       # Push to main with src/functions/ changes → orchestrates deploy
+└── deploy-lambdas-env.yml   # Reusable workflow: build + deploy per environment
+```
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| CI | Every PR and push to `main` | `cargo test`, `cargo fmt`, `cargo clippy`, ARM64 build, `terraform validate` |
+| Terraform Plan | PR touching `infrastructure/` | Uploads config to Stack, comments PR with plan link |
+| Terraform Apply | Merge to `main` touching `infrastructure/` | Uploads config → dev auto-approves, prod requires manual approval |
+| Deploy Lambdas | Merge to `main` touching `src/functions/` | Deploys to `dev` first, then `prod` (with approval gate) |
+
+### GitHub Environments Setup
+
+The Lambda deploy workflow uses **GitHub Environments** to manage per-environment secrets, variables, and approval gates.
+
+**Settings → Environments → New environment**
+
+Create two environments: `dev` and `prod`.
+
+#### Environment: `dev`
+
+No protection rules needed (auto-deploys on merge to main).
+
+**Secrets** (Environment secrets tab):
+
+| Secret | Value |
+|--------|-------|
+| `AWS_ACCESS_KEY_ID` | Dev AWS Access Key ID |
+| `AWS_SECRET_ACCESS_KEY` | Dev AWS Secret Access Key |
+| `AWS_SESSION_TOKEN` | *(optional)* Dev session token — only needed for temporary credentials |
+
+**Variables** (Environment variables tab):
+
+| Variable | Value |
+|----------|-------|
+| `AWS_DEFAULT_REGION` | `us-west-2` |
+| `USERS_LAMBDA_FUNCTION_NAME` | `workshop-dev-users-lambda` |
+| `AUTHORIZER_LAMBDA_FUNCTION_NAME` | `workshop-dev-authorizer-lambda` |
+
+#### Environment: `prod`
+
+Enable **Required reviewers** protection rule — add at least one approver.
+
+**Secrets** (Environment secrets tab):
+
+| Secret | Value |
+|--------|-------|
+| `AWS_ACCESS_KEY_ID` | Prod AWS Access Key ID |
+| `AWS_SECRET_ACCESS_KEY` | Prod AWS Secret Access Key |
+| `AWS_SESSION_TOKEN` | *(optional)* Prod session token — only needed for temporary credentials |
+
+**Variables** (Environment variables tab):
+
+| Variable | Value |
+|----------|-------|
+| `AWS_DEFAULT_REGION` | `us-west-2` |
+| `USERS_LAMBDA_FUNCTION_NAME` | `workshop-prod-users-lambda` |
+| `AUTHORIZER_LAMBDA_FUNCTION_NAME` | `workshop-prod-authorizer-lambda` |
+
+### Repository-Level Secrets
+
+These are shared across all workflows (not environment-specific):
+
+**Settings → Secrets and variables → Actions → Secrets tab**
+
+| Secret | Value | Used by |
+|--------|-------|---------|
+| `TF_API_TOKEN` | HCP Terraform team token (org: `lep511`) | `terraform-plan.yml`, `terraform-apply.yml`, `ci.yml` |
+
+### Generating the HCP Terraform Token
+
+1. Go to [app.terraform.io](https://app.terraform.io) → Organization: `lep511`
+2. **Settings → Teams** → Create team `GitHub Actions` (or use an existing one)
+3. **Settings → API Tokens → Team Tokens** → Select the `GitHub Actions` team
+4. Click **Create a team token** → Copy the token
+5. Paste it as the `TF_API_TOKEN` secret in GitHub
+
+### AWS Credentials for Lambda Deploy
+
+The AWS credentials are only used for deploying Lambda function code. Infrastructure uses OIDC via HCP Terraform — no AWS credentials needed in GitHub for that.
+
+**Option A: Temporary credentials (STS)**
+```bash
+aws sts get-session-token --duration-seconds 43200
+```
+Use the returned `AccessKeyId`, `SecretAccessKey`, and `SessionToken` as secrets.
+
+**Option B: Dedicated IAM user**
+
+Create an IAM user `github-actions-deployer` with a minimal policy:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "lambda:UpdateFunctionCode",
+        "lambda:GetFunction"
+      ],
+      "Resource": [
+        "arn:aws:lambda:us-west-2:375920412105:function:workshop-*"
+      ]
+    }
+  ]
+}
+```
+Generate an Access Key and use it as `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`. Leave `AWS_SESSION_TOKEN` empty or omit it.
+
+### End-to-End Flow
+
+```
+Developer                  GitHub                    HCP Terraform         AWS
+    │                         │                          │                  │
+    ├─ Push branch ──────────►│                          │                  │
+    │                         ├─ CI: test + build        │                  │
+    │                         │                          │                  │
+    ├─ Open PR ──────────────►│                          │                  │
+    │                         ├─ CI: test + build        │                  │
+    │                         ├─ terraform-plan ────────►│ Plan (speculative)
+    │                         │◄─ PR comment (plan link) │                  │
+    │                         │                          │                  │
+    ├─ Merge to main ────────►│                          │                  │
+    │                         ├─ CI: test + build        │                  │
+    │                         ├─ terraform-apply ───────►│ Upload config    │
+    │                         │                          ├─ dev: auto-apply─►│ Deploy infra
+    │                         │                          ├─ prod: wait       │ (manual)
+    │                         ├─ deploy-lambdas (dev) ──────────────────────►│ Update code (dev)
+    │                         ├─ deploy-lambdas (prod) ─── approval gate ──►│ Update code (prod)
+    │                         │                          │                  │
+```
+
+### Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `terraform stacks configuration upload` fails with 401 | `TF_API_TOKEN` expired or misconfigured. Regenerate in HCP Terraform |
+| `cargo lambda deploy` fails with credentials error | Verify `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are correct. If using STS, check that `AWS_SESSION_TOKEN` hasn't expired |
+| CI passes but deploy doesn't run | Verify the push was to `main` and paths match (`src/functions/**` or `infrastructure/**`) |
+| Plan doesn't comment on PR | Check workflow permissions: `permissions: pull-requests: write` |
+| ARM64 build fails | The `aarch64-unknown-linux-gnu` target is installed automatically. Verify `cargo-lambda` is installed |
+
 ## Testing
 
 Run the integration test suite against the deployed Lambda:

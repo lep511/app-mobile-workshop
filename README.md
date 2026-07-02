@@ -5,22 +5,22 @@ This project implements a serverless REST API on AWS using Rust Lambda functions
 ## Architecture
 
 ```
-                          ┌──────────────────┐
-                          │   Amazon Cognito  │
-                          │    User Pool      │
-                          └────────┬─────────┘
-                                   │ JWT validation
-                                   ▼
-┌──────────┐       ┌───────────────────────────────┐       ┌────────────────┐
-│  Client  │──────▶│  API Gateway (HTTP API)       │──────▶│  Users Lambda  │
-└──────────┘       │  + Lambda Authorizer          │       │  (Rust/ARM64)  │
-                   └───────────────────────────────┘       └───────┬────────┘
-                                                                   │
-                                                                   ▼
-                                                          ┌────────────────┐
-                                                          │   DynamoDB     │
-                                                          │  (users table) │
-                                                          └────────────────┘
+                       ┌──────────────────┐
+                       │  Amazon Cognito  │
+                       │  User Pool       │
+                       └──────────────────┘
+                                 │ JWT validation
+                                 ▼
+┌──────────┐       ┌──────────────────────────┐       ┌──────────────────┐
+│  Client  │▶│  API Gateway (HTTP API)  │──────▶│  Users Lambda    │
+│          │       │  + Lambda Authorizer     │       │  (Rust / ARM64)  │
+└──────────┘       └──────────────────────────┘       └──────────────────┘
+                                                                │
+                                                                ▼
+                                                      ┌─────────────────┐
+                                                      │  DynamoDB       │
+                                                      │  (users table)  │
+                                                      └─────────────────┘
 ```
 
 ### AWS Services Used
@@ -70,7 +70,6 @@ This project implements a serverless REST API on AWS using Rust Lambda functions
 │   ├── build-users-lambda.sh       # Build and package users Lambda
 │   └── build-authorizer-lambda.sh  # Build and package authorizer Lambda
 ├── tests/
-│   ├── unit/users/                 # Unit tests (pytest)
 │   └── integration/                # Integration tests (bash, invokes deployed Lambda)
 └── .github/workflows/
     └── deploy-users-lambda.yml     # CI/CD pipeline for users Lambda
@@ -82,7 +81,7 @@ This project implements a serverless REST API on AWS using Rust Lambda functions
 - [cargo-lambda](https://www.cargo-lambda.info/guide/installation.html) for building and deploying Lambda functions
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.0.0
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) configured with appropriate credentials
-- Python 3.x and pytest (for unit tests)
+- (Optional) Bash for integration tests
 
 ## Getting Started
 
@@ -257,7 +256,11 @@ All errors return a JSON body with a `message` field:
 ### Unit Tests
 
 ```bash
-pytest tests/unit/
+# Users Lambda
+cd src/functions/users && cargo test
+
+# Authorizer Lambda
+cd src/functions/authorizer && cargo test
 ```
 
 ### Integration Tests

@@ -1,0 +1,57 @@
+name: Deploy Lambda Functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/functions/**"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      users: ${{ steps.changes.outputs.users }}
+      authorizer: ${{ steps.changes.outputs.authorizer }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - id: changes
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -q '^src/functions/users/'; then
+            echo "users=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "users=false" >> "$GITHUB_OUTPUT"
+          fi
+          if git diff --name-only HEAD~1 HEAD | grep -q '^src/functions/authorizer/'; then
+            echo "authorizer=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "authorizer=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-dev:
+    name: Deploy to Dev
+    needs: detect-changes
+    if: needs.detect-changes.outputs.users == 'true' || needs.detect-changes.outputs.authorizer == 'true'
+    uses: ./.github/workflows/deploy-lambdas-env.yml
+    with:
+      environment: dev
+      deploy-users: ${{ needs.detect-changes.outputs.users == 'true' }}
+      deploy-authorizer: ${{ needs.detect-changes.outputs.authorizer == 'true' }}
+    secrets: inherit
+
+  deploy-prod:
+    name: Deploy to Prod
+    needs: [detect-changes, deploy-dev]
+    if: needs.detect-changes.outputs.users == 'true' || needs.detect-changes.outputs.authorizer == 'true'
+    uses: ./.github/workflows/deploy-lambdas-env.yml
+    with:
+      environment: prod
+      deploy-users: ${{ needs.detect-changes.outputs.users == 'true' }}
+      deploy-authorizer: ${{ needs.detect-changes.outputs.authorizer == 'true' }}
+    secrets: inherit
