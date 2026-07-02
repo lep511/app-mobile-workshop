@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - "src/functions/**"
+      - ".github/workflows/deploy-lambdas.yml"
+      - ".github/workflows/deploy-lambdas-env.yml"
   workflow_dispatch:
     inputs:
       deploy-users:
@@ -20,61 +22,21 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  detect-changes:
-    name: Detect Changes
-    runs-on: ubuntu-latest
-    outputs:
-      users: ${{ steps.result.outputs.users }}
-      authorizer: ${{ steps.result.outputs.authorizer }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - id: result
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "users=${{ inputs.deploy-users }}" >> "$GITHUB_OUTPUT"
-            echo "authorizer=${{ inputs.deploy-authorizer }}" >> "$GITHUB_OUTPUT"
-          else
-            # Compare against the last successful deploy, not just HEAD~1
-            # Fall back to deploying both if we can't determine
-            USERS=false
-            AUTHORIZER=false
-            CHANGED=$(git diff --name-only HEAD~1 HEAD)
-            if echo "$CHANGED" | grep -q '^src/functions/users/'; then
-              USERS=true
-            fi
-            if echo "$CHANGED" | grep -q '^src/functions/authorizer/'; then
-              AUTHORIZER=true
-            fi
-            # If paths trigger fired but no specific function detected, deploy both
-            if [ "$USERS" = "false" ] && [ "$AUTHORIZER" = "false" ]; then
-              USERS=true
-              AUTHORIZER=true
-            fi
-            echo "users=$USERS" >> "$GITHUB_OUTPUT"
-            echo "authorizer=$AUTHORIZER" >> "$GITHUB_OUTPUT"
-          fi
-
   deploy-dev:
     name: Deploy to Dev
-    needs: detect-changes
-    if: needs.detect-changes.outputs.users == 'true' || needs.detect-changes.outputs.authorizer == 'true'
     uses: ./.github/workflows/deploy-lambdas-env.yml
     with:
       environment: dev
-      deploy-users: ${{ needs.detect-changes.outputs.users == 'true' }}
-      deploy-authorizer: ${{ needs.detect-changes.outputs.authorizer == 'true' }}
+      deploy-users: ${{ github.event_name != 'workflow_dispatch' || inputs.deploy-users }}
+      deploy-authorizer: ${{ github.event_name != 'workflow_dispatch' || inputs.deploy-authorizer }}
     secrets: inherit
 
   deploy-prod:
     name: Deploy to Prod
-    needs: [detect-changes, deploy-dev]
-    if: needs.detect-changes.outputs.users == 'true' || needs.detect-changes.outputs.authorizer == 'true'
+    needs: deploy-dev
     uses: ./.github/workflows/deploy-lambdas-env.yml
     with:
       environment: prod
-      deploy-users: ${{ needs.detect-changes.outputs.users == 'true' }}
-      deploy-authorizer: ${{ needs.detect-changes.outputs.authorizer == 'true' }}
+      deploy-users: ${{ github.event_name != 'workflow_dispatch' || inputs.deploy-users }}
+      deploy-authorizer: ${{ github.event_name != 'workflow_dispatch' || inputs.deploy-authorizer }}
     secrets: inherit

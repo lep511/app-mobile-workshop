@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "infrastructure/**"
+      - ".github/workflows/terraform-apply.yml"
 
 env:
   TF_CLOUD_ORGANIZATION: "lep511"
