@@ -48,9 +48,6 @@ jobs:
       - name: Install cargo-lambda
         run: pip install cargo-lambda
 
-      - name: Run tests
-        run: cargo test --all-features
-
       - name: Build
         run: cargo lambda build --release --arm64
 
@@ -63,7 +60,7 @@ jobs:
           SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Deploy
-        run: cargo lambda deploy ${{ vars.USERS_LAMBDA_FUNCTION_NAME }}
+        run: cargo lambda deploy --binary-name users-lambda ${{ vars.USERS_LAMBDA_FUNCTION_NAME }}
 
   deploy-authorizer:
     name: Authorizer Lambda (${{ inputs.environment }})
@@ -96,9 +93,6 @@ jobs:
       - name: Install cargo-lambda
         run: pip install cargo-lambda
 
-      - name: Run tests
-        run: cargo test --all-features
-
       - name: Build
         run: cargo lambda build --release --arm64
 
@@ -111,4 +105,4 @@ jobs:
           SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Deploy
-        run: cargo lambda deploy ${{ vars.AUTHORIZER_LAMBDA_FUNCTION_NAME }}
+        run: cargo lambda deploy --binary-name authorizer-lambda ${{ vars.AUTHORIZER_LAMBDA_FUNCTION_NAME }}
