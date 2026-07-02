@@ -103,7 +103,6 @@ impl UpdateUserRequest {
         }
         Ok(())
     }
-
 }
 
 impl User {

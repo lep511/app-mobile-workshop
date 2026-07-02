@@ -34,9 +34,7 @@ pub fn dynamo_error(status: u16, body: &str) -> ReplayEvent {
 
 fn dynamo_response(status: u16, body: &str) -> ReplayEvent {
     ReplayEvent::new(
-        http::Request::builder()
-            .body(SdkBody::from(""))
-            .unwrap(),
+        http::Request::builder().body(SdkBody::from("")).unwrap(),
         http::Response::builder()
             .status(status)
             .body(SdkBody::from(body))
@@ -100,4 +98,5 @@ pub fn dynamo_conditional_check_failed() -> ReplayEvent {
 }
 
 #[allow(dead_code)]
-pub const INTERNAL_SERVER_ERROR: &str = r#"{"__type":"InternalServerError","message":"Service Unavailable"}"#;
+pub const INTERNAL_SERVER_ERROR: &str =
+    r#"{"__type":"InternalServerError","message":"Service Unavailable"}"#;

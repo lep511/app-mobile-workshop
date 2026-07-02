@@ -22,8 +22,8 @@ impl AppState {
     }
 
     pub fn from_env(dynamo_client: DynamoClient) -> Self {
-        let table_name =
-            env::var("USERS_TABLE_NAME").expect("USERS_TABLE_NAME environment variable must be set");
+        let table_name = env::var("USERS_TABLE_NAME")
+            .expect("USERS_TABLE_NAME environment variable must be set");
         Self::new(dynamo_client, table_name)
     }
 }

@@ -65,10 +65,10 @@ resource "aws_lambda_function" "authorizer" {
 
   environment {
     variables = {
-      USER_POOL_ID           = aws_cognito_user_pool.main.id
-      CLIENT_ID              = aws_cognito_user_pool_client.main.id
-      ADMIN_GROUP_NAME       = aws_cognito_user_group.administrators.name
-      RUST_LOG               = "info"
+      USER_POOL_ID     = aws_cognito_user_pool.main.id
+      CLIENT_ID        = aws_cognito_user_pool_client.main.id
+      ADMIN_GROUP_NAME = aws_cognito_user_group.administrators.name
+      RUST_LOG         = "info"
     }
   }
 

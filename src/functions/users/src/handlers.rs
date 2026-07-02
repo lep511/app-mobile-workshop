@@ -13,10 +13,7 @@ use crate::AppState;
 const DEFAULT_PAGE_SIZE: i32 = 20;
 const MAX_PAGE_SIZE: i32 = 100;
 
-pub async fn list_users(
-    state: &AppState,
-    request: &Request,
-) -> Result<Response<Body>, AppError> {
+pub async fn list_users(state: &AppState, request: &Request) -> Result<Response<Body>, AppError> {
     let limit = request
         .query_string_parameters_ref()
         .and_then(|p| p.first("limit"))
@@ -38,9 +35,10 @@ pub async fn list_users(
         scan_builder = scan_builder.exclusive_start_key("userid", AttributeValue::S(decoded));
     }
 
-    let result = scan_builder.send().await.map_err(|e| {
-        AppError::Internal(format!("DynamoDB scan failed: {e}"))
-    })?;
+    let result = scan_builder
+        .send()
+        .await
+        .map_err(|e| AppError::Internal(format!("DynamoDB scan failed: {e}")))?;
 
     let users: Vec<User> = result
         .items()
@@ -59,10 +57,7 @@ pub async fn list_users(
     Ok(success_response(200, &response_body))
 }
 
-pub async fn get_user(
-    state: &AppState,
-    request: &Request,
-) -> Result<Response<Body>, AppError> {
+pub async fn get_user(state: &AppState, request: &Request) -> Result<Response<Body>, AppError> {
     let userid = extract_userid(request)?;
 
     let result = state
@@ -83,16 +78,17 @@ pub async fn get_user(
     Ok(success_response(200, &user))
 }
 
-pub async fn create_user(
-    state: &AppState,
-    request: &Request,
-) -> Result<Response<Body>, AppError> {
+pub async fn create_user(state: &AppState, request: &Request) -> Result<Response<Body>, AppError> {
     let body = match request.body() {
         Body::Text(text) => text.clone(),
         Body::Binary(bytes) => String::from_utf8(bytes.to_vec())
             .map_err(|_| AppError::ValidationError("invalid UTF-8 in request body".into()))?,
         Body::Empty => return Err(AppError::ValidationError("request body is required".into())),
-        _ => return Err(AppError::ValidationError("unsupported request body encoding".into())),
+        _ => {
+            return Err(AppError::ValidationError(
+                "unsupported request body encoding".into(),
+            ))
+        }
     };
 
     let create_req: CreateUserRequest = serde_json::from_str(&body)
@@ -131,10 +127,7 @@ pub async fn create_user(
     Ok(success_response(201, &user))
 }
 
-pub async fn update_user(
-    state: &AppState,
-    request: &Request,
-) -> Result<Response<Body>, AppError> {
+pub async fn update_user(state: &AppState, request: &Request) -> Result<Response<Body>, AppError> {
     let userid = extract_userid(request)?;
 
     let body = match request.body() {
@@ -142,7 +135,11 @@ pub async fn update_user(
         Body::Binary(bytes) => String::from_utf8(bytes.to_vec())
             .map_err(|_| AppError::ValidationError("invalid UTF-8 in request body".into()))?,
         Body::Empty => return Err(AppError::ValidationError("request body is required".into())),
-        _ => return Err(AppError::ValidationError("unsupported request body encoding".into())),
+        _ => {
+            return Err(AppError::ValidationError(
+                "unsupported request body encoding".into(),
+            ))
+        }
     };
 
     let update_req: UpdateUserRequest = serde_json::from_str(&body)
@@ -191,12 +188,15 @@ pub async fn update_user(
         update_builder = update_builder.expression_attribute_values(name, value);
     }
 
-    let result = update_builder.send().await.map_err(|e| match e.into_service_error() {
-        UpdateItemError::ConditionalCheckFailedException(_) => {
-            AppError::NotFound(format!("User {userid} not found"))
-        }
-        other => AppError::Internal(format!("DynamoDB update failed: {other}")),
-    })?;
+    let result = update_builder
+        .send()
+        .await
+        .map_err(|e| match e.into_service_error() {
+            UpdateItemError::ConditionalCheckFailedException(_) => {
+                AppError::NotFound(format!("User {userid} not found"))
+            }
+            other => AppError::Internal(format!("DynamoDB update failed: {other}")),
+        })?;
 
     let attributes = result
         .attributes()
@@ -209,10 +209,7 @@ pub async fn update_user(
     Ok(success_response(200, &user))
 }
 
-pub async fn delete_user(
-    state: &AppState,
-    request: &Request,
-) -> Result<Response<Body>, AppError> {
+pub async fn delete_user(state: &AppState, request: &Request) -> Result<Response<Body>, AppError> {
     let userid = extract_userid(request)?;
 
     state
@@ -244,7 +241,10 @@ pub fn options_response() -> Response<Body> {
         .status(200)
         .header("access-control-allow-origin", "*")
         .header("access-control-allow-methods", "GET, PUT, DELETE, OPTIONS")
-        .header("access-control-allow-headers", "content-type, authorization, x-amz-date, x-api-key")
+        .header(
+            "access-control-allow-headers",
+            "content-type, authorization, x-amz-date, x-api-key",
+        )
         .header("access-control-max-age", "3600")
         .body(Body::Empty)
         .unwrap()

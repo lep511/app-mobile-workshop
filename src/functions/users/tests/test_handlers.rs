@@ -126,7 +126,9 @@ async fn test_create_user_empty_body() {
     let req = request_no_userid("PUT", None);
 
     let result = create_user(&state, &req).await;
-    assert!(matches!(result, Err(AppError::ValidationError(msg)) if msg.contains("body is required")));
+    assert!(
+        matches!(result, Err(AppError::ValidationError(msg)) if msg.contains("body is required"))
+    );
 }
 
 #[tokio::test]
@@ -162,8 +164,7 @@ async fn test_create_user_conflict() {
 
 #[tokio::test]
 async fn test_update_user_success() {
-    let dynamo_body =
-        r#"{"Attributes":{"userid":{"S":"u1"},"email":{"S":"updated@b.com"},"name":{"S":"Alice"}}}"#;
+    let dynamo_body = r#"{"Attributes":{"userid":{"S":"u1"},"email":{"S":"updated@b.com"},"name":{"S":"Alice"}}}"#;
     let state = test_state(vec![dynamo_ok(dynamo_body)]);
     let body = r#"{"email":"updated@b.com"}"#;
     let req = request_with_userid("PUT", "u1", Some(body));
@@ -190,7 +191,9 @@ async fn test_update_user_empty_body() {
     let req = request_with_userid("PUT", "u1", None);
 
     let result = update_user(&state, &req).await;
-    assert!(matches!(result, Err(AppError::ValidationError(msg)) if msg.contains("body is required")));
+    assert!(
+        matches!(result, Err(AppError::ValidationError(msg)) if msg.contains("body is required"))
+    );
 }
 
 #[tokio::test]

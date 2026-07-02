@@ -60,7 +60,9 @@ fn make_valid_token(private_key: &RsaPrivateKey) -> String {
     let mut header = Header::new(Algorithm::RS256);
     header.kid = Some(TEST_KID.to_string());
 
-    let pem = private_key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF).unwrap();
+    let pem = private_key
+        .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
+        .unwrap();
     let encoding_key = EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap();
 
     encode(&header, &claims, &encoding_key).unwrap()
@@ -140,14 +142,26 @@ fn test_validate_token_valid() {
 #[test]
 fn test_validate_token_invalid_header() {
     let jwks = JwksResponse { keys: vec![] };
-    let resp = validate_token("not.a.jwt", &jwks, TEST_REGION, TEST_POOL_ID, TEST_CLIENT_ID);
+    let resp = validate_token(
+        "not.a.jwt",
+        &jwks,
+        TEST_REGION,
+        TEST_POOL_ID,
+        TEST_CLIENT_ID,
+    );
     assert!(!resp.is_authorized);
 }
 
 #[test]
 fn test_validate_token_garbage_input() {
     let jwks = JwksResponse { keys: vec![] };
-    let resp = validate_token("totalgarbage", &jwks, TEST_REGION, TEST_POOL_ID, TEST_CLIENT_ID);
+    let resp = validate_token(
+        "totalgarbage",
+        &jwks,
+        TEST_REGION,
+        TEST_POOL_ID,
+        TEST_CLIENT_ID,
+    );
     assert!(!resp.is_authorized);
 }
 
@@ -171,7 +185,9 @@ fn test_validate_token_missing_kid() {
     let mut header = Header::new(Algorithm::RS256);
     header.kid = None; // no kid
 
-    let pem = private_key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF).unwrap();
+    let pem = private_key
+        .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
+        .unwrap();
     let encoding_key = EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap();
     let token = encode(&header, &claims, &encoding_key).unwrap();
 
@@ -235,7 +251,9 @@ fn test_validate_token_expired() {
     let mut header = Header::new(Algorithm::RS256);
     header.kid = Some(TEST_KID.to_string());
 
-    let pem = private_key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF).unwrap();
+    let pem = private_key
+        .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
+        .unwrap();
     let encoding_key = EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap();
     let token = encode(&header, &claims, &encoding_key).unwrap();
 
@@ -273,7 +291,9 @@ fn test_validate_token_wrong_token_use() {
     let mut header = Header::new(Algorithm::RS256);
     header.kid = Some(TEST_KID.to_string());
 
-    let pem = private_key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF).unwrap();
+    let pem = private_key
+        .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
+        .unwrap();
     let encoding_key = EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap();
     let token = encode(&header, &claims, &encoding_key).unwrap();
 
@@ -298,7 +318,9 @@ fn test_validate_token_wrong_issuer() {
     let mut header = Header::new(Algorithm::RS256);
     header.kid = Some(TEST_KID.to_string());
 
-    let pem = private_key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF).unwrap();
+    let pem = private_key
+        .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
+        .unwrap();
     let encoding_key = EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap();
     let token = encode(&header, &claims, &encoding_key).unwrap();
 
@@ -327,9 +349,7 @@ fn test_validate_token_signed_with_wrong_key() {
     let mut header = Header::new(Algorithm::RS256);
     header.kid = Some(TEST_KID.to_string());
 
-    let pem = other_key
-        .to_pkcs1_pem(rsa::pkcs1::LineEnding::LF)
-        .unwrap();
+    let pem = other_key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF).unwrap();
     let encoding_key = EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap();
     let token = encode(&header, &claims, &encoding_key).unwrap();
 

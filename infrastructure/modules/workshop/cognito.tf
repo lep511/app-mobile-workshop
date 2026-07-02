@@ -59,11 +59,11 @@ resource "aws_cognito_user_pool_client" "main" {
 
   refresh_token_validity = 30
 
-  callback_urls                = ["http://localhost"]
-  allowed_oauth_flows          = ["code", "implicit"]
-  allowed_oauth_scopes         = ["email", "openid"]
+  callback_urls                        = ["http://localhost"]
+  allowed_oauth_flows                  = ["code", "implicit"]
+  allowed_oauth_scopes                 = ["email", "openid"]
   allowed_oauth_flows_user_pool_client = true
-  supported_identity_providers = ["COGNITO"]
+  supported_identity_providers         = ["COGNITO"]
 }
 
 resource "aws_cognito_user_pool_domain" "main" {

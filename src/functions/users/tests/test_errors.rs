@@ -90,9 +90,7 @@ fn test_success_response_201() {
 #[test]
 fn test_display_all_variants() {
     assert!(format!("{}", AppError::NotFound("x".into())).contains("Not found: x"));
-    assert!(
-        format!("{}", AppError::ValidationError("y".into())).contains("Validation error: y")
-    );
+    assert!(format!("{}", AppError::ValidationError("y".into())).contains("Validation error: y"));
     assert!(format!("{}", AppError::Conflict("z".into())).contains("Conflict: z"));
     assert!(format!("{}", AppError::MethodNotAllowed).contains("Method not allowed"));
     assert!(format!("{}", AppError::Internal("i".into())).contains("Internal error: i"));
